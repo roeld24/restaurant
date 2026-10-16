@@ -1,0 +1,196 @@
+{
+  "landing": {
+    "title": "Réservation de Groupe",
+    "subtitle": "Réservez une table pour votre groupe de 7 à 14 personnes",
+    "description": "",
+    "rules": {
+      "title": "Informations Importantes",
+      "groupSize": "Ce système de réservation est réservé aux groupes de 7 à 14 personnes.",
+      "fixedSlots": "Toutes les réservations de groupe sont pour des créneaux horaires fixes.",
+      "menuRequired": "Le menu de groupe est obligatoire. Le menu à la carte n'est pas disponible pour les groupes.",
+      "deposit": "Une carte de crédit est requise pour garantir votre réservation.",
+      "noShowPolicy": "Des frais de 20 $ CAD par personne s'appliquent si: annulation après la date limite (1 semaine avant), changement d'invités non communiqué 24 heures avant l'heure de réservation, ou non-présentation."
+    },
+    "partySize": {
+      "label": "Combien d'invités?",
+      "placeholder": "Sélectionner le nombre",
+      "smallGroup": {
+        "title": "Pour 1-6 Invités",
+        "description": "Veuillez utiliser notre système de réservation régulier pour les petits groupes.",
+        "button": "Réserver via Libro"
+      },
+      "largeGroup": {
+        "title": "Pour 15+ Invités",
+        "description": "Veuillez nous contacter directement pour les grands groupes.",
+        "phone_fr": "(514) 834-8710",
+        "phone_en": "(514) 224-8710",
+        "email": "lunagroupreservation@gmail.com"
+      }
+    },
+    "agreement": "J'ai lu et je comprends les politiques de réservation de groupe",
+    "continue": "Continuer"
+  },
+  "details": {
+    "title": "Date, Heure et Contact",
+    "subtitle": "Étape 2 sur 6",
+    "date": {
+      "label": "Sélectionner la Date",
+      "closed": "Fermé",
+      "urgentBooking": "Pour les réservations dans les 7 prochains jours, veuillez nous contacter directement:"
+    },
+    "time": {
+      "label": "Sélectionner le Créneau",
+      "arrival": "Début",
+      "departure": "Fin de service",
+      "lateWarning": "Les arrivées tardives peuvent réduire le temps de repas"
+    },
+    "slots": {
+      "early": "Service Tôt",
+      "late": "Service Tard"
+    },
+    "contact": {
+      "title": "Coordonnées",
+      "firstName": "Prénom",
+      "lastName": "Nom de Famille",
+      "email": "Adresse Courriel",
+      "phone": "Numéro de Téléphone",
+      "phoneInvalid": "Veuillez entrer un numéro de téléphone valide à 10 chiffres"
+    },
+    "depositNotice": "La réservation est confirmée uniquement après l'étape finale.",
+    "emailLanguage": {
+      "label": "Langue du courriel de confirmation",
+      "description": "Sélectionnez la langue de votre courriel de confirmation"
+    },
+    "back": "Retour",
+    "continue": "Continuer"
+  },
+  "menuPolicy": {
+    "title": "Politique du Menu",
+    "subtitle": "Étape 3 sur 6",
+    "description": "Veuillez consulter notre politique de menu de groupe avant de continuer.",
+    "rules": {
+      "title": "Règles du Menu de Groupe",
+      "mandatory": "Le menu de groupe est obligatoire pour toutes les réservations de 7+ personnes.",
+      "noAlaCarte": "Le menu à la carte (commande à l'unité) n'est pas disponible pour les groupes.",
+      "menuTypes": "Vous pouvez mélanger différents menus (Demi-Lune, Pleine-Lune, Végi).",
+      "minimumOrder": "Minimum 2 personnes requises par type de menu.",
+      "children": "Les enfants de moins de 10 ans peuvent commander 1 plat du menu régulier (à la carte)."
+    },
+    "viewMenu": "Voir le Menu Complet (PDF)",
+    "agreement": "Je comprends et j'accepte la politique du menu de groupe",
+    "back": "Retour",
+    "continue": "Continuer"
+  },
+  "allergy": {
+    "title": "Informations sur les Allergies",
+    "subtitle": "Étape 4 sur 6",
+    "description": "Veuillez nous informer de toute allergie ou restriction alimentaire dans votre groupe.",
+    "question": "Y a-t-il des personnes dans votre groupe ayant des allergies ou restrictions alimentaires?",
+    "yes": "Oui",
+    "no": "Non",
+    "details": {
+      "label": "Veuillez décrire les allergies et indiquer combien de personnes sont concernées",
+      "placeholder": "Ex: 2 invités ont des allergies aux noix, 1 invité est végétarien..."
+    },
+    "warnings": {
+      "title": "Informations Importantes sur les Allergènes",
+      "peanutsLabel": "Arachides",
+      "peanuts": "Peuvent être présentes dans notre cuisine. Les invités ayant des allergies sévères devraient reconsidérer leur visite.",
+      "fishGlutenLabel": "Poisson/Gluten",
+      "fishGluten": "Nos marinades de viande contiennent de la sauce soja et de la sauce de poisson. Veuillez nous informer à l'avance si vous ne pouvez pas en consommer.",
+      "general": "Nous pouvons adapter les ingrédients sur demande. Merci de nous signaler toute allergie ou intolérance à l’avance. Malgré toutes les précautions prises, des traces d’allergènes peuvent être présentes dans notre cuisine."
+    },
+    "back": "Retour",
+    "continue": "Continuer"
+  },
+  "houseRules": {
+    "title": "Règlement de la Maison",
+    "subtitle": "Étape 5 sur 6",
+    "description": "Veuillez accepter les politiques suivantes pour compléter votre réservation.",
+    "rules": {
+      "headcount": {
+        "title": "Décompte Final",
+        "description": "Veuillez confirmer le nombre exact d'invités 24 heures avant l'heure de réservation (en cas de changement)."
+      },
+      "oneBill": {
+        "title": "Politique de Facture Unique",
+        "description": "Nous fournissons une seule facture par table. Les factures séparées ne sont pas disponibles."
+      },
+      "noOutside": {
+        "title": "Pas d'Articles Extérieurs",
+        "description": "La nourriture, les boissons, les desserts, les décorations et les équipements musicaux de l'extérieur ne sont pas permis."
+      },
+      "alcohol": {
+        "title": "Politique d'Alcool",
+        "description": "Alcool de l'extérieur autorisé (Max 20% alc./vol). Les boissons dépassant 20% d'alcool ne sont pas autorisées."
+      }
+    },
+    "agreement": "J'accepte toutes les règles de la maison énumérées ci-dessus",
+    "back": "Retour",
+    "continue": "Continuer"
+  },
+  "cardGuarantee": {
+    "title": "Garantie par Carte",
+    "subtitle": "Étape 6 sur 6",
+    "description": "Veuillez fournir une carte de crédit pour garantir votre réservation.",
+    "notice": {
+      "noCharge": "Aucun frais immédiat.",
+      "secure": "Votre carte est sauvegardée de façon sécuritaire uniquement pour la garantie de réservation.",
+      "penalty": "Des frais de 20 $ CAD par personne s'appliquent pour les annulations moins d'une semaine à l'avance, les changements d'invités non communiqués 24 heures avant l'heure de réservation, ou la non-présentation."
+    },
+    "card": {
+      "label": "Carte de Crédit ou Débit"
+    },
+    "agreement": "Je comprends et j'accepte la politique d'annulation",
+    "back": "Retour",
+    "submit": "Confirmer la Réservation"
+  },
+  "confirmation": {
+    "title": "Réservation Reçue!",
+    "subtitle": "Votre réservation est en attente d'approbation",
+    "pendingMessage": "Notre équipe examinera votre réservation et vous enverra un courriel de confirmation dans un délai de 24 heures.",
+    "details": {
+      "confirmationNumber": "Numéro de Référence",
+      "date": "Date",
+      "time": "Heure",
+      "guests": "Nombre d'Invités",
+      "name": "Nom"
+    },
+    "emailSent": "Nous enverrons une confirmation à",
+    "reminder": "N'oubliez pas:",
+    "reminderItems": {
+      "headcount": "Si le nombre de personnes change, veuillez nous aviser au moins 24 heures avant l'heure de réservation",
+      "arrival": "Arrivez à l'heure pour profiter de votre expérience complète",
+      "cancellation": "Annulation moins d'une semaine avant votre réservation: frais de 20 $ CAD par personne"
+    },
+    "newReservation": "Faire une Autre Réservation"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur s'est produite",
+    "required": "Requis",
+    "step": "Étape",
+    "of": "sur"
+  },
+  "errors": {
+    "slotUnavailable": "Ce créneau horaire n'est plus disponible",
+    "capacityExceeded": "Désolé, nous ne pouvons pas accueillir ce groupe pour le moment",
+    "invalidCard": "Veuillez vérifier les détails de votre carte",
+    "bookingFailed": "Échec de la création de la réservation. Veuillez réessayer."
+  },
+  "home": {
+    "mainWebsite": "Visiter le Site Principal",
+    "hero": {
+      "badge": "L'excellence à Montréal",
+      "title": "Réservations de Groupe",
+      "subtitle": "Bienvenue dans notre système de réservation de groupe. Pour les groupes de 7 à 14 invités, veuillez consulter les informations suivantes pour garantir une expérience optimale.",
+      "contact": "Pour les groupes de plus de 15 personnes, contactez-nous au"
+    },
+    "footer": {
+      "rights": "Tous droits réservés.",
+      "contact": "Contact",
+      "phone_en": "(514) 224-8710",
+      "phone_fr": "(514) 834-8710"
+    }
+  }
+}

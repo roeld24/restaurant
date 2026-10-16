@@ -1,0 +1,297 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase/server';
+import { sendConfirmationEmail, sendCancellationEmail, sendRejectionEmail } from '@/lib/email';
+import { requireAuth } from '@/lib/auth';
+import { getConcurrentGuests } from '@/lib/availability';
+import { MAX_CAPACITY } from '@/lib/booking-rules';
+import type { BookingStatus } from '@/types/booking';
+
+// Postgres unique-violation, also raised here by the one-team-per-slot index when an
+// admin edit moves a booking into an already-occupied slot.
+const PG_UNIQUE_VIOLATION = '23505';
+const PG_CHECK_VIOLATION = '23514';
+const SLOT_CONFLICT_INDEX = 'idx_bookings_one_team_per_slot';
+const MAX_REJECTION_REASON = 500;
+
+const VALID_STATUSES: BookingStatus[] = [
+  'pending',
+  'confirmed',
+  'cancelled',
+  'completed',
+  'noshow_charged',
+];
+
+// Record that the notification failed so the admin dashboard can surface it, instead of
+// the failure being visible only in server logs.
+async function recordEmailFailure(
+  supabase: ReturnType<typeof createServerClient>,
+  bookingId: string,
+  error: unknown
+) {
+  const message = error instanceof Error ? error.message : String(error);
+  await supabase
+    .from('bookings')
+    .update({
+      last_email_error: message.slice(0, 500),
+      last_email_error_at: new Date().toISOString(),
+    })
+    .eq('id', bookingId);
+}
+
+// PATCH /api/admin/bookings/[id]
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requireAuth();
+    if (!auth.authenticated) {
+      return auth.error;
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    const {
+      status,
+      first_name,
+      last_name,
+      email,
+      phone,
+      party_size,
+      booking_date,
+      slot_start,
+      slot_end,
+      allergy_info,
+      email_language,
+      // The version of the row the admin last saw. Two admins editing the same booking at
+      // once would otherwise let the second save silently overwrite the first.
+      updated_at,
+      // Set only after the admin has seen the conflicting-booking summary and confirmed
+      // they want to overbook the slot anyway.
+      force_overbook,
+      rejection_reason,
+    } = body;
+
+    if (status !== undefined && !VALID_STATUSES.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
+    }
+
+    const supabase = createServerClient();
+
+    const { data: currentBooking, error: fetchError } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!currentBooking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+
+    // Optimistic locking. The comparison is done here in application code rather than as an
+    // `.eq('updated_at', ...)` filter on the UPDATE: round-tripping a microsecond-precision
+    // timestamptz back through PostgREST as an exact-match filter is fragile, and if it ever
+    // failed to match, every confirm/cancel/edit would return a spurious conflict and the
+    // restaurant could not manage bookings at all. This check catches the case that actually
+    // happens -- an admin saving from a page loaded before someone else's change -- and the
+    // residual window (two saves inside the same few milliseconds) is not a real risk here.
+    if (updated_at && updated_at !== currentBooking.updated_at) {
+      return NextResponse.json(
+        { error: 'This booking was changed by someone else. Please refresh and try again.' },
+        { status: 409 }
+      );
+    }
+
+    // 1. Cancel without charge. With a rejection_reason this is the admin declining a
+    // pending request, and the guest gets the rejection email carrying that reason instead.
+    if (status === 'cancelled') {
+      const rejectionReason = typeof rejection_reason === 'string' ? rejection_reason.trim() : '';
+      if (rejection_reason !== undefined) {
+        if (currentBooking.status !== 'pending') {
+          return NextResponse.json({ error: 'Only pending bookings can be rejected' }, { status: 400 });
+        }
+        if (!rejectionReason || rejectionReason.length > MAX_REJECTION_REASON) {
+          return NextResponse.json({ error: 'Invalid rejection reason' }, { status: 400 });
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      }
+
+      try {
+        if (rejectionReason) {
+          await sendRejectionEmail(data, rejectionReason);
+        } else {
+          await sendCancellationEmail(data);
+        }
+      } catch (err) {
+        console.error('Failed to send cancellation/rejection email:', err);
+        await recordEmailFailure(supabase, id, err);
+      }
+
+      return NextResponse.json({ success: true, booking: data });
+    }
+
+    // 2. Full update (edit) — validate any time/party-size change against the real slot
+    // definitions rather than accepting arbitrary values.
+    const updates: Record<string, unknown> = {};
+    if (status !== undefined) updates.status = status;
+    if (first_name !== undefined) updates.first_name = first_name;
+    if (last_name !== undefined) updates.last_name = last_name;
+    if (email !== undefined) updates.email = email;
+    if (phone !== undefined) updates.phone = phone;
+    if (allergy_info !== undefined) updates.allergy_info = allergy_info;
+    if (email_language !== undefined) {
+      if (email_language !== 'en' && email_language !== 'fr') {
+        return NextResponse.json({ error: 'Invalid email language' }, { status: 400 });
+      }
+      updates.email_language = email_language;
+    }
+
+    const dateChanged = booking_date !== undefined && booking_date !== currentBooking.booking_date;
+    const startChanged = slot_start !== undefined && slot_start !== currentBooking.slot_start;
+    const endChanged = slot_end !== undefined && slot_end !== currentBooking.slot_end;
+    const sizeChanged = party_size !== undefined && party_size !== currentBooking.party_size;
+
+    // Where this booking will sit once saved — unchanged fields keep their current value.
+    // Needed beyond the time-change branch because a party-size-only edit still has to be
+    // weighed against whoever is already seated in the booking's existing window.
+    const targetDate = booking_date ?? currentBooking.booking_date;
+    // slot_start/slot_end are stored as HH:MM:SS; the slot definitions use HH:MM.
+    const targetStart = (slot_start ?? currentBooking.slot_start).slice(0, 5);
+    const targetEnd = (slot_end ?? currentBooking.slot_end).slice(0, 5);
+
+    if (dateChanged || startChanged || endChanged) {
+      const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+      const validTimes = TIME_RE.test(targetStart) && TIME_RE.test(targetEnd);
+      const validRange = targetEnd === '00:00' || targetStart < targetEnd;
+
+      if (!validTimes || !validRange) {
+        return NextResponse.json(
+          { error: 'Invalid start/end time' },
+          { status: 400 }
+        );
+      }
+
+      updates.booking_date = targetDate;
+      updates.slot_start = `${targetStart}:00`;
+      updates.slot_end = `${targetEnd}:00`;
+
+      const { data: conflictingBookings, error: conflictError } = await supabase
+        .from('bookings')
+        .select('id, first_name, last_name, party_size, status')
+        .eq('booking_date', targetDate)
+        .eq('slot_start', updates.slot_start)
+        .eq('slot_end', updates.slot_end)
+        .in('status', ['pending', 'confirmed', 'completed'])
+        .neq('id', id);
+
+      if (conflictError) throw conflictError;
+
+      if (conflictingBookings && conflictingBookings.length > 0) {
+        if (!force_overbook) {
+          return NextResponse.json(
+            { conflict: true, conflicting_bookings: conflictingBookings },
+            { status: 409 }
+          );
+        }
+        updates.bypassed_slot_limit = true;
+      } else {
+        updates.bypassed_slot_limit = false;
+      }
+    }
+
+    if (sizeChanged) {
+      // Admins may raise a booking above the public 7-14 range (e.g. a guest's
+      // group grew after booking) — the DB CHECK constraint only requires >= 1.
+      if (!Number.isInteger(party_size) || party_size < 1) {
+        return NextResponse.json({ error: 'Invalid party size' }, { status: 400 });
+      }
+      updates.party_size = party_size;
+    }
+
+    // Dining-room capacity. Enforced here rather than only in the UI: the admin page used
+    // to show a warning and save anyway, so any authenticated caller could seat an
+    // unbounded party. Counted across overlapping seatings, since the 17:00-19:30 and
+    // 18:00-20:15 parties share the room.
+    if (dateChanged || startChanged || endChanged || sizeChanged) {
+      const targetSize = party_size ?? currentBooking.party_size;
+      const otherGuests = await getConcurrentGuests(targetDate, targetStart, targetEnd, id);
+
+      if (otherGuests + targetSize > MAX_CAPACITY) {
+        if (!force_overbook) {
+          return NextResponse.json(
+            {
+              capacityExceeded: true,
+              currentGuests: otherGuests,
+              requested: targetSize,
+              max: MAX_CAPACITY,
+            },
+            { status: 409 }
+          );
+        }
+        // Confirmed override: keep the row out of the one-team-per-slot index so the
+        // deliberate overbooking survives the write, and leave a trace on the row.
+        updates.bypassed_slot_limit = true;
+      }
+    }
+
+    const { data: updatedBooking, error } = await supabase
+      .from('bookings')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === PG_UNIQUE_VIOLATION) {
+        const errorText = [error.message, error.details, error.hint].filter(Boolean).join(' ');
+        if (errorText.includes(SLOT_CONFLICT_INDEX)) {
+          return NextResponse.json(
+            { error: 'Another booking already occupies that date and time slot' },
+            { status: 409 }
+          );
+        }
+      }
+      if (error.code === PG_CHECK_VIOLATION) {
+        return NextResponse.json(
+          { error: 'Party size is not allowed by the database constraint' },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
+
+    if (!updatedBooking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+
+    if (status === 'confirmed') {
+      try {
+        await sendConfirmationEmail(updatedBooking);
+      } catch (err) {
+        console.error('Failed to send confirmation email:', err);
+        await recordEmailFailure(supabase, id, err);
+      }
+    }
+
+    return NextResponse.json({ success: true, booking: updatedBooking });
+
+  } catch (error) {
+    console.error('Update booking error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update booking' },
+      { status: 500 }
+    );
+  }
+}
